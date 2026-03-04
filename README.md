@@ -1,6 +1,7 @@
 # Garde
-This is a simple authentication server to use with nginx's auth_request module.
-Login page is served at both `/` and `/login`, and the validation endpoint is at `/auth`.
+Garde is a simple and lightweight authentication server to use with nginx's auth_request module.
+
+The login page is served at both `/` and `/login`, and the validation endpoint is at `/auth`.
 The server uses JWTs and cookies for authentication.
 
 Currently only authentication with a `.htpasswd` file is supported but more methods may be added in the future.

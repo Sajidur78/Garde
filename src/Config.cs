@@ -10,6 +10,12 @@ public class Config
             ? "/etc/garde" // Use /etc/garde for privileged processes on Unix-like systems otherwise use the user's home directory
             : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".garde"));
 
+    public static readonly string PrivateDataPath = Environment.OSVersion.Platform == PlatformID.Win32NT
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Garde", ".private")
+        : (Environment.IsPrivilegedProcess
+            ? "/var/lib/garde" // Use /var/lib/garde for privileged processes on Unix-like systems otherwise use the user's home directory
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pgarde"));
+
     public bool LogRequests { get; set; } = false;
     public int Port { get; set; } = 5000;
     public string Domain { get; set; } = string.Empty;

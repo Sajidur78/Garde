@@ -10,13 +10,14 @@ WORKDIR /App
 # Copy everything
 COPY ./src ./
 
-# Restore as distinct layers
+# Restore as distinct layers to cache dependencies, they barely change anyway
 RUN dotnet restore
 
-# Build and publish a release
+# Very cool and lightweight NativeAOT publish, thank you microsoft
 RUN dotnet publish -c Release -o build -r linux-musl-x64 --self-contained true /p:PublishAot=true
 
 # Build runtime image
+# Use alpine for a lightweight base
 FROM alpine:3.23.3
 LABEL org.opencontainers.image.source=https://github.com/Sajidur78/Garde
 LABEL org.opencontainers.image.description="Garde Authenticator"

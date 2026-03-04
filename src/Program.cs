@@ -42,7 +42,7 @@ else
 
 var app = builder.Build();
 
-var keysPath = Path.Combine(Config.DataPath, ".keys");
+var keysPath = Path.Combine(Config.PrivateDataPath, ".keys");
 var hmacKeysPath = Path.Combine(keysPath, "hs256.key");
 Directory.CreateDirectory(keysPath);
 

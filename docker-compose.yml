@@ -39,6 +39,10 @@ services:
     
     restart: unless-stopped
     volumes:
-      # Data mount.
-      # This is where Garde stores all of its data, such as users and keys.
+      # Config mount
       - ./garde_data:/etc/garde:rw
+      
+      # Private data
+      # Mount to persist data such as private keys across containers
+      # This is required to keep valid tokens across container recreations.
+      # - ./garde_data/.private:/var/lib/garde:rw
