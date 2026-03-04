@@ -149,14 +149,14 @@ public static class HtPasswordExtensions
             throw new NotSupportedException("AggregateAuthenticator is not registered in the service collection.");
         }
 
-        if (File.Exists(".htpasswd"))
+        if (File.Exists(path))
         {
             var logger = app.ApplicationServices.GetRequiredService<ILogger<HtPassword>>();
             var htPassword = new HtPassword(logger);
 
             htPassword.Logger.LogInformation("Found .htpasswd, loading .htpasswd file");
             
-            htPassword.ReadFile(".htpasswd");
+            htPassword.ReadFile(path);
 
             htPassword.Logger.LogInformation("Loaded {Count} entries from .htpasswd file", htPassword.Entries.Count);
             

@@ -4,6 +4,7 @@ Login page is served at both `/` and `/login`, and the validation endpoint is at
 The server uses JWTs and cookies for authentication.
 
 Currently only authentication with a `.htpasswd` file is supported but more methods may be added in the future.
+In docker the `.htpasswd` file is read from `/etc/garde/.htpasswd`.
 
 Configuration with nginx is very simple, just add the following to your configuration:
 ```nginx

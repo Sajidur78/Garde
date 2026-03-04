@@ -41,4 +41,4 @@ services:
     volumes:
       # htpasswd file to use for authentication. Comment to disable htpasswd authentication.
       # Currently only supports basic and bcrypt authentication.
-      - .htpasswd:/App/.htpasswd:ro
+      - ./garde_data:/etc/garde:rw

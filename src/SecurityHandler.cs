@@ -6,7 +6,7 @@ using System.Security.Cryptography;
 
 public class SecurityHandler
 {
-    public static readonly SecurityKey DefaultKey = new SymmetricSecurityKey(SHA256.HashData("very_secret"u8));
+    public static readonly SymmetricSecurityKey DefaultKey = new SymmetricSecurityKey(SHA256.HashData("very_secret"u8));
     public static readonly SigningCredentials DefaultCredentials = new(DefaultKey, SecurityAlgorithms.HmacSha256);
     
     public SigningCredentials Credentials { get; init; } = DefaultCredentials;
@@ -16,9 +16,15 @@ public class SecurityHandler
     public string AudiencePrefix => $"{Configuration.Issuer}/";
     public string SourcePrefix => $"{Configuration.Issuer}/";
 
-    public SecurityHandler(Config config) 
+    public SecurityHandler(Config config, SecurityConfig secConfig) 
     {
         Configuration = config;
+        Credentials = secConfig.SigningCredentials;
+    }
+
+    public static SymmetricSecurityKey GenerateRandomKey()
+    {
+        return new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
     }
 
     public string IssueToken(string name, string aud, string source, DateTime expiry)

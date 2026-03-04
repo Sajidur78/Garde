@@ -1,8 +1,14 @@
 namespace Garde;
+using Microsoft.IdentityModel.Tokens;
 
 public class Config
 {
     public const string Section = "Garde";
+    public static readonly string DataPath = Environment.OSVersion.Platform == PlatformID.Win32NT
+        ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Garde")
+        : (Environment.IsPrivilegedProcess 
+            ? "/etc/garde" // Use /etc/garde for privileged processes on Unix-like systems otherwise use the user's home directory
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".garde"));
 
     public bool LogRequests { get; set; } = false;
     public int Port { get; set; } = 5000;
@@ -17,4 +23,9 @@ public class Config
     {
         public string UserID { get; set; } = Requests.DefaultUsernameResponseHeader;
     }
+}
+
+public class SecurityConfig
+{
+    public SigningCredentials SigningCredentials { get; internal set; } = SecurityHandler.DefaultCredentials;
 }
