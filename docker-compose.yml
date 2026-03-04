@@ -1,0 +1,44 @@
+services:
+  garde:
+    image: garde:latest
+    build: .
+    ports:
+    - "5089:5089"
+    environment:
+      - GARDE__PORT=5089
+      
+      # Wether to log all requests to the console. Useful for debugging.
+      - GARDE__LOGREQUESTS=false
+      
+      # Wether to perform user validation. If the user exists or not.
+      # If false, then the authentication is trusted blindly by key.
+      # Default: true
+
+      # - GARDE__VALIDATEUSERS=true 
+      
+      # Time until the authentication cookie expires in seconds.
+      # Default: 31536000 (1 year)
+
+      # - GARDE__TOKENEXPIRY=31536000
+
+      # The domain to set for the cookie.
+      # If not specified then the root domain is used via the public suffix db 
+      # (eg. auth.example.com = example.com)
+
+      # - GARDE__DOMAIN=localhost
+      
+      # Authentication cookie name, default is Garde-Auth 
+
+      # - GARDE__COOKIE=Garde-Auth 
+
+      # The issuer to set for the cookie, default is Garde
+      # - GARDE__ISSUER=Garde 
+      
+      # The user id in the response header from /auth.
+      # - GARDE__RESPONSE__UserID=X-Garde-User
+    
+    restart: unless-stopped
+    volumes:
+      # htpasswd file to use for authentication. Comment to disable htpasswd authentication.
+      # Currently only supports basic and bcrypt authentication.
+      - .htpasswd:/App/.htpasswd:ro
