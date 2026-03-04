@@ -1,6 +1,6 @@
 services:
   garde:
-    image: garde:latest
+    image: ghcr.io/sajidur78/garde:latest
     build: .
     ports:
     - "5089:5089"
@@ -39,6 +39,6 @@ services:
     
     restart: unless-stopped
     volumes:
-      # htpasswd file to use for authentication. Comment to disable htpasswd authentication.
-      # Currently only supports basic and bcrypt authentication.
+      # Data mount.
+      # This is where Garde stores all of its data, such as users and keys.
       - ./garde_data:/etc/garde:rw

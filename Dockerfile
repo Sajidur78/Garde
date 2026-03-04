@@ -18,6 +18,10 @@ RUN dotnet publish -c Release -o build -r linux-musl-x64 --self-contained true /
 
 # Build runtime image
 FROM alpine:3.23.3
+LABEL org.opencontainers.image.source=https://github.com/Sajidur78/Garde
+LABEL org.opencontainers.image.description="Garde Authenticator"
+LABEL org.opencontainers.image.licenses=MIT-0
+
 RUN apk add libc6-compat
 
 WORKDIR /App

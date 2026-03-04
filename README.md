@@ -48,3 +48,5 @@ GARDE__PORT=5089
 GARDE__DOMAIN=auth.example.com
 ```
 See the included `docker-compose.yml` for more parameters and an example of how to run the server with Docker.
+
+Human contributors are welcome.
