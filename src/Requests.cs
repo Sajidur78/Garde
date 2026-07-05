@@ -1,4 +1,6 @@
 namespace Garde;
+using WellKnown;
+using System.Web;
 
 public static class Requests
 {
@@ -22,6 +24,8 @@ public static class Requests
         app.MapGet("/login", Login.Get);
         app.MapPost("/login", Login.Post);
         app.MapGet("/auth", Auth.Get);
+
+        app.MapGet("/.well-known/jwks.json", JsonWebKeys.Get);
     }
 
     public class Auth
@@ -88,9 +92,9 @@ public static class Requests
             }
 
             var loginPageBuilder = new StringBuilder(Content.Login);
-            loginPageBuilder.Replace("{{CSRF_TOKEN}}", csrf);
-            loginPageBuilder.Replace("{{REDIRECT_URL}}", redirect ?? string.Empty);
-            loginPageBuilder.Replace("{{ERROR_MESSAGE}}", reason ?? string.Empty);
+            loginPageBuilder.Replace("{{CSRF_TOKEN}}", HttpUtility.HtmlEncode(csrf));
+            loginPageBuilder.Replace("{{REDIRECT_URL}}", HttpUtility.HtmlEncode(redirect) ?? string.Empty);
+            loginPageBuilder.Replace("{{ERROR_MESSAGE}}", HttpUtility.HtmlEncode(reason) ?? string.Empty);
 
             return loginPageBuilder.ToString();
         }
@@ -114,9 +118,9 @@ public static class Requests
                 {
                     Security.ValidateToken(csrf!, "CSRF");
                 }
-                catch
+                catch(Exception ex)
                 {
-                    log.LogWarning("CSRF Attack detected {IP}, {Path}, {Token}", ctx.Connection.RemoteIpAddress, ctx.GetFullPath(), csrf);
+                    log.LogError(ex, "CSRF Attack detected {IP}, {Path}, {Token}", ctx.Connection.RemoteIpAddress, ctx.GetFullPath(), csrf);
                     return Results.BadRequest("CSRF Attack detected");
                 }
             }

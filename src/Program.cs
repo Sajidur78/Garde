@@ -6,6 +6,14 @@ using Microsoft.IdentityModel.Tokens;
 using System.Buffers.Text;
 using Garde;
 using System.Security.Cryptography;
+using System.Text.Json.Serialization.Metadata;
+using System.Text.Json.Serialization;
+using ScottBrady.IdentityModel.Tokens;
+using Org.BouncyCastle.Crypto.Generators;
+using Org.BouncyCastle.Crypto.Parameters;
+using ScottBrady.IdentityModel.Crypto;
+using Org.BouncyCastle.OpenSsl;
+using Org.BouncyCastle.Security;
 
 var rules = new LocalFileRuleProvider("public_suffix_list.dat");
 await rules.BuildAsync();
@@ -18,6 +26,11 @@ var config = builder.Configuration
             .Get<Config>() ?? new();
 
 var securityConfig = new SecurityConfig();
+
+builder.Services.ConfigureHttpJsonOptions(o =>
+{
+    o.SerializerOptions.TypeInfoResolverChain.Add(JsonSerializerTypeInfo.Default);
+});
 
 builder.Services.AddSingleton(config);
 builder.Services.AddSingleton(new DomainParser(rules));
@@ -46,11 +59,36 @@ var app = builder.Build();
 var keysPath = Path.Combine(Config.PrivateDataPath, ".keys");
 var hmacKeysPath = Path.Combine(keysPath, "hs256.key");
 var ecdsaKeysPath = Path.Combine(keysPath, "ecdsa");
+var eddsaKeysPath = Path.Combine(keysPath, "eddsa");
 
 Directory.CreateDirectory(keysPath);
 
 var keysLoaded = false;
-if (File.Exists(ecdsaKeysPath))
+
+// Key rotation is a future me problem
+if (File.Exists(eddsaKeysPath))
+{
+    try
+    {
+        var pubKey = (Ed25519PublicKeyParameters)Extensions.ImportPem(File.ReadAllText($"{eddsaKeysPath}.pub"));
+        var privKey = (Ed25519PrivateKeyParameters)Extensions.ImportPem(File.ReadAllText(eddsaKeysPath));
+
+        var eddsa = EdDsa.Create(new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519)
+        {
+            X = pubKey.GetEncoded(),
+            D = privKey.GetEncoded()
+        });
+
+        securityConfig.Configure(new EdDsaSecurityKey(eddsa));
+        keysLoaded = true;
+        app.Logger.LogInformation("Loaded EdDSA keys");
+    }
+    catch(Exception ex)
+    {
+        app.Logger.LogInformation(ex, "Failed to load EdDSA key from file. Falling back to ECDSA.");
+    }
+}
+else if (File.Exists(ecdsaKeysPath))
 {
     try
     {
@@ -59,8 +97,8 @@ if (File.Exists(ecdsaKeysPath))
 
         // Private key has to be imported after the public key
         key.ImportFromPem(File.ReadAllText(ecdsaKeysPath));
-
-        securityConfig.SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(key), SecurityAlgorithms.EcdsaSha256);
+        
+        securityConfig.Configure(new ECDsaSecurityKey(key));
         keysLoaded = true;
 
         app.Logger.LogInformation("Loaded ECDSA key.");
@@ -76,7 +114,8 @@ else if (File.Exists(hmacKeysPath))
     {
         var keyBytes = Base64Url.DecodeFromChars(File.ReadAllText(hmacKeysPath));
         var key = new SymmetricSecurityKey(keyBytes);
-        securityConfig.SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+
+        securityConfig.Configure(key, SecurityAlgorithms.HmacSha256);
         keysLoaded = true;
 
         app.Logger.LogInformation("Loaded HMAC key.");
@@ -88,13 +127,21 @@ else if (File.Exists(hmacKeysPath))
 }
 
 if (!keysLoaded)
-{
-    app.Logger.LogWarning("No valid keys found. Generating new ECDSA key pair.");
-    var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
-    
-    File.WriteAllText(ecdsaKeysPath, ecdsa.ExportPkcs8PrivateKeyPem());
-    File.WriteAllText($"{ecdsaKeysPath}.pub", ecdsa.ExportSubjectPublicKeyInfoPem());
-    securityConfig.SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
+{   
+    app.Logger.LogWarning("No valid keys found. Generating new EdDSA key pair.");
+
+    var generator = new Ed25519KeyPairGenerator();
+    generator.Init(new Ed25519KeyGenerationParameters(new SecureRandom()));
+
+    var keys = generator.GenerateKeyPair();
+    var pubKey = (Ed25519PublicKeyParameters)keys.Public;
+    var privKey = (Ed25519PrivateKeyParameters)keys.Private;
+
+    File.WriteAllText(eddsaKeysPath, privKey.ExportPem());
+    File.WriteAllText($"{eddsaKeysPath}.pub", pubKey.ExportPem());
+
+    var eddsa = EdDsa.Create(new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519) { X = pubKey.GetEncoded(), D = privKey.GetEncoded() });
+    securityConfig.Configure(new EdDsaSecurityKey(eddsa));
 }
 
 app.UseHttpLogging();
@@ -108,3 +155,12 @@ if (auths.Count == 0)
 }
 
 app.Run();
+
+
+[JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault | JsonIgnoreCondition.WhenWritingNull)]
+[JsonSerializable(typeof(JsonWebKeySet))]
+[JsonSerializable(typeof(string))]
+public partial class JsonSerializerTypeInfo : JsonSerializerContext
+{
+
+}

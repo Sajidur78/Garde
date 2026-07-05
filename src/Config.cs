@@ -1,5 +1,9 @@
 namespace Garde;
 using Microsoft.IdentityModel.Tokens;
+using ScottBrady.IdentityModel;
+using ScottBrady.IdentityModel.Crypto;
+using ScottBrady.IdentityModel.Tokens;
+using System.Security.Cryptography;
 
 public class Config
 {
@@ -34,4 +38,53 @@ public class Config
 public class SecurityConfig
 {
     public SigningCredentials SigningCredentials { get; internal set; } = SecurityHandler.DefaultCredentials;
+    public JsonWebKeySet Jwks { get; internal set; } = new();
+
+    public void Configure(EdDsaSecurityKey key)
+    {
+        SigningCredentials = new(key, ExtendedSecurityAlgorithms.EdDsa);
+        Jwks.Keys.Clear();
+
+        var jwk = ExtendedJsonWebKeyConverter.ConvertFromEdDsaSecurityKey(key);
+        jwk.Use = JsonWebKeyUseNames.Sig;
+        jwk.D = null; // Remove private key
+
+        Jwks.Keys.Add(jwk);
+    }
+
+    public void Configure(RsaSecurityKey key)
+    {
+        SigningCredentials = new(key, SecurityAlgorithms.RsaSha256);
+
+        Jwks.Keys.Clear();
+
+        var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(key);
+        jwk.Use = JsonWebKeyUseNames.Sig;
+        jwk.D = null; // Remove private key
+
+        Jwks.Keys.Add(jwk);
+    }
+
+    public void Configure(ECDsaSecurityKey key)
+    {
+        SigningCredentials = new(key, SecurityAlgorithms.EcdsaSha256);
+
+        Jwks.Keys.Clear();
+
+        var jwk = JsonWebKeyConverter.ConvertFromECDsaSecurityKey(key);
+        jwk.Use = JsonWebKeyUseNames.Sig;
+        jwk.D = null; // Remove private key
+
+        Jwks.Keys.Add(jwk);
+    }
+
+    /// <summary>
+    /// WARN: Symmetric keys don't export jwks
+    /// </summary>
+    /// <param name="key"></param>
+    public void Configure(SymmetricSecurityKey key, string alg)
+    {
+        SigningCredentials = new(key, alg);
+        Jwks.Keys.Clear();
+    }
 }
