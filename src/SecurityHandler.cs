@@ -22,9 +22,9 @@ public class SecurityHandler
         Credentials = secConfig.SigningCredentials;
     }
 
-    public static SymmetricSecurityKey GenerateRandomKey()
+    public static SymmetricSecurityKey GenerateRandomKey(int keyLength = 32)
     {
-        return new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(32));
+        return new SymmetricSecurityKey(RandomNumberGenerator.GetBytes(keyLength));
     }
 
     public string IssueToken(string name, string aud, string source, DateTime expiry)
@@ -53,7 +53,7 @@ public class SecurityHandler
         return TokenHandler.WriteToken(token);
     }
 
-    public JwtSecurityToken ValidateToken(string token, string? aud)
+    public JwtSecurityToken ValidateToken(string token, string? aud = null)
     {
         var validationParameters = new TokenValidationParameters
         {

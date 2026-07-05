@@ -14,7 +14,7 @@ public class Config
         ? Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.ApplicationData), "Garde", ".private")
         : (Environment.IsPrivilegedProcess
             ? "/var/lib/garde" // Use /var/lib/garde for privileged processes on Unix-like systems otherwise use the user's home directory
-            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".pgarde"));
+            : Path.Combine(Environment.GetFolderPath(Environment.SpecialFolder.UserProfile), ".garde", ".private"));
 
     public bool LogRequests { get; set; } = false;
     public int Port { get; set; } = 5000;

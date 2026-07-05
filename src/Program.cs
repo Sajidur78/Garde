@@ -5,6 +5,7 @@ global using Nager.PublicSuffix;
 using Microsoft.IdentityModel.Tokens;
 using System.Buffers.Text;
 using Garde;
+using System.Security.Cryptography;
 
 var rules = new LocalFileRuleProvider("public_suffix_list.dat");
 await rules.BuildAsync();
@@ -44,33 +45,56 @@ var app = builder.Build();
 
 var keysPath = Path.Combine(Config.PrivateDataPath, ".keys");
 var hmacKeysPath = Path.Combine(keysPath, "hs256.key");
+var ecdsaKeysPath = Path.Combine(keysPath, "ecdsa");
+
 Directory.CreateDirectory(keysPath);
 
-if (!File.Exists(hmacKeysPath))
+var keysLoaded = false;
+if (File.Exists(ecdsaKeysPath))
 {
-    app.Logger.LogInformation("No HMAC key found. Generating a new key.");
-    var key = SecurityHandler.GenerateRandomKey();
-    File.WriteAllText(hmacKeysPath, Base64Url.EncodeToString(key.Key));
+    try
+    {
+        var key = ECDsa.Create();
+        key.ImportFromPem(File.ReadAllText($"{ecdsaKeysPath}.pub"));
 
-    securityConfig.SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        // Private key has to be imported after the public key
+        key.ImportFromPem(File.ReadAllText(ecdsaKeysPath));
+
+        securityConfig.SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(key), SecurityAlgorithms.EcdsaSha256);
+        keysLoaded = true;
+
+        app.Logger.LogInformation("Loaded ECDSA key.");
+    }
+    catch (Exception ex)
+    {
+        app.Logger.LogError(ex, "Failed to load ECDSA key from file. Falling back to HMAC.");
+    }
 }
-else
+else if (File.Exists(hmacKeysPath))
 {
     try
     {
         var keyBytes = Base64Url.DecodeFromChars(File.ReadAllText(hmacKeysPath));
         var key = new SymmetricSecurityKey(keyBytes);
         securityConfig.SigningCredentials = new SigningCredentials(key, SecurityAlgorithms.HmacSha256);
+        keysLoaded = true;
+
+        app.Logger.LogInformation("Loaded HMAC key.");
     }
     catch (Exception ex)
     {
         app.Logger.LogError(ex, "Failed to load HMAC key from file. Generating a new key.");
     }
+}
 
-    var secureKey = SecurityHandler.GenerateRandomKey();
-    File.WriteAllText(hmacKeysPath, Base64Url.EncodeToString(secureKey.Key));
-
-    securityConfig.SigningCredentials = new SigningCredentials(secureKey, SecurityAlgorithms.HmacSha256);
+if (!keysLoaded)
+{
+    app.Logger.LogWarning("No valid keys found. Generating new ECDSA key pair.");
+    var ecdsa = ECDsa.Create(ECCurve.NamedCurves.nistP256);
+    
+    File.WriteAllText(ecdsaKeysPath, ecdsa.ExportPkcs8PrivateKeyPem());
+    File.WriteAllText($"{ecdsaKeysPath}.pub", ecdsa.ExportSubjectPublicKeyInfoPem());
+    securityConfig.SigningCredentials = new SigningCredentials(new ECDsaSecurityKey(ecdsa), SecurityAlgorithms.EcdsaSha256);
 }
 
 app.UseHttpLogging();
