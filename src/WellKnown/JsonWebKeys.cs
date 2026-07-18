@@ -1,9 +1,10 @@
 namespace Garde.WellKnown;
+using Microsoft.IdentityModel.Tokens;
 
 public static class JsonWebKeys
 {
-    public static IResult Get(SecurityConfig security)
+    public static JsonWebKeySet Get(SecurityConfig security)
     {
-        return Results.Json(security.Jwks, JsonSerializerTypeInfo.Default);
+        return security.Jwks;
     }
 }

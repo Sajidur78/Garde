@@ -46,6 +46,7 @@ public class SecurityConfig
         Jwks.Keys.Clear();
 
         var jwk = ExtendedJsonWebKeyConverter.ConvertFromEdDsaSecurityKey(key);
+        jwk.KeyId = key.KeyId;
         jwk.Use = JsonWebKeyUseNames.Sig;
         jwk.D = null; // Remove private key
 
@@ -59,6 +60,7 @@ public class SecurityConfig
         Jwks.Keys.Clear();
 
         var jwk = JsonWebKeyConverter.ConvertFromRSASecurityKey(key);
+        jwk.KeyId = key.KeyId;
         jwk.Use = JsonWebKeyUseNames.Sig;
         jwk.D = null; // Remove private key
 
@@ -72,6 +74,7 @@ public class SecurityConfig
         Jwks.Keys.Clear();
 
         var jwk = JsonWebKeyConverter.ConvertFromECDsaSecurityKey(key);
+        jwk.KeyId = key.KeyId;
         jwk.Use = JsonWebKeyUseNames.Sig;
         jwk.D = null; // Remove private key
 

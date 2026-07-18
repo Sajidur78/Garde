@@ -14,6 +14,7 @@ using Org.BouncyCastle.Crypto.Parameters;
 using ScottBrady.IdentityModel.Crypto;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
+using System.Collections;
 
 var rules = new LocalFileRuleProvider("public_suffix_list.dat");
 await rules.BuildAsync();
@@ -29,7 +30,17 @@ var securityConfig = new SecurityConfig();
 
 builder.Services.ConfigureHttpJsonOptions(o =>
 {
-    o.SerializerOptions.TypeInfoResolverChain.Add(JsonSerializerTypeInfo.Default);
+    o.SerializerOptions.TypeInfoResolverChain.Add(JsonSerializerTypeInfo.Default
+        .WithAddedModifier(JsonSerializerTypeInfo.IgnoreEmptyCollections));
+});
+
+builder.Services.AddCors(o =>
+{
+    o.AddPolicy("WellKnown", p =>
+    {
+        p.AllowAnyOrigin().WithMethods(HttpMethod.Get.Method)
+            .SetPreflightMaxAge(TimeSpan.MaxValue).DisallowCredentials();
+    });
 });
 
 builder.Services.AddSingleton(config);
@@ -56,6 +67,8 @@ else
 
 var app = builder.Build();
 
+app.UseCors();
+
 var keysPath = Path.Combine(Config.PrivateDataPath, ".keys");
 var hmacKeysPath = Path.Combine(keysPath, "hs256.key");
 var ecdsaKeysPath = Path.Combine(keysPath, "ecdsa");
@@ -73,13 +86,19 @@ if (File.Exists(eddsaKeysPath))
         var pubKey = (Ed25519PublicKeyParameters)Extensions.ImportPem(File.ReadAllText($"{eddsaKeysPath}.pub"));
         var privKey = (Ed25519PrivateKeyParameters)Extensions.ImportPem(File.ReadAllText(eddsaKeysPath));
 
-        var eddsa = EdDsa.Create(new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519)
+        var keyParams = new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519)
         {
             X = pubKey.GetEncoded(),
             D = privKey.GetEncoded()
+        };
+
+        var eddsa = EdDsa.Create(keyParams);
+
+        securityConfig.Configure(new EdDsaSecurityKey(eddsa) 
+        { 
+            KeyId = Convert.ToHexStringLower(SHA256.HashData(keyParams.X))[..8] 
         });
 
-        securityConfig.Configure(new EdDsaSecurityKey(eddsa));
         keysLoaded = true;
         app.Logger.LogInformation("Loaded EdDSA keys");
     }
@@ -93,12 +112,17 @@ else if (File.Exists(ecdsaKeysPath))
     try
     {
         var key = ECDsa.Create();
-        key.ImportFromPem(File.ReadAllText($"{ecdsaKeysPath}.pub"));
+        var pubKey = File.ReadAllText($"{ecdsaKeysPath}.pub");
+        key.ImportFromPem(pubKey);
 
         // Private key has to be imported after the public key
         key.ImportFromPem(File.ReadAllText(ecdsaKeysPath));
         
-        securityConfig.Configure(new ECDsaSecurityKey(key));
+        securityConfig.Configure(new ECDsaSecurityKey(key) 
+        {
+            KeyId = Convert.ToHexStringLower(Encoding.UTF8.GetBytes(pubKey))[..8]
+        });
+
         keysLoaded = true;
 
         app.Logger.LogInformation("Loaded ECDSA key.");
@@ -113,8 +137,11 @@ else if (File.Exists(hmacKeysPath))
     try
     {
         var keyBytes = Base64Url.DecodeFromChars(File.ReadAllText(hmacKeysPath));
-        var key = new SymmetricSecurityKey(keyBytes);
-
+        var key = new SymmetricSecurityKey(keyBytes) 
+        {
+            KeyId = Convert.ToHexStringLower(SHA256.HashData(keyBytes))[..8] // idk, probably safe
+        };
+        
         securityConfig.Configure(key, SecurityAlgorithms.HmacSha256);
         keysLoaded = true;
 
@@ -139,9 +166,13 @@ if (!keysLoaded)
 
     File.WriteAllText(eddsaKeysPath, privKey.ExportPem());
     File.WriteAllText($"{eddsaKeysPath}.pub", pubKey.ExportPem());
-
-    var eddsa = EdDsa.Create(new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519) { X = pubKey.GetEncoded(), D = privKey.GetEncoded() });
-    securityConfig.Configure(new EdDsaSecurityKey(eddsa));
+    var keyParams = new EdDsaParameters(ExtendedSecurityAlgorithms.Curves.Ed25519) { X = pubKey.GetEncoded(), D = privKey.GetEncoded() };
+    
+    var eddsa = EdDsa.Create(keyParams);
+    securityConfig.Configure(new EdDsaSecurityKey(eddsa) 
+    {
+        KeyId = Convert.ToHexStringLower(SHA256.HashData(keyParams.X))[..8]
+    });
 }
 
 app.UseHttpLogging();
@@ -159,8 +190,27 @@ app.Run();
 
 [JsonSourceGenerationOptions(DefaultIgnoreCondition = JsonIgnoreCondition.WhenWritingDefault | JsonIgnoreCondition.WhenWritingNull)]
 [JsonSerializable(typeof(JsonWebKeySet))]
+[JsonSerializable(typeof(JsonWebKey))]
 [JsonSerializable(typeof(string))]
+[JsonSerializable(typeof(OpenIdConfig))]
 public partial class JsonSerializerTypeInfo : JsonSerializerContext
 {
+    public static void IgnoreEmptyCollections(JsonTypeInfo type)
+    {
+        if (type.Kind != JsonTypeInfoKind.Object)
+        {
+            return;
+        }
 
+        foreach(var prop in type.Properties)
+        {
+            if (prop.PropertyType.IsAssignableTo(typeof(IEnumerable)))
+            {
+                prop.ShouldSerialize = (_, o) =>
+                {
+                    return (o as IEnumerable)?.GetEnumerator().MoveNext() == true;
+                };
+            }
+        }
+    }
 }

@@ -25,7 +25,8 @@ public static class Requests
         app.MapPost("/login", Login.Post);
         app.MapGet("/auth", Auth.Get);
 
-        app.MapGet("/.well-known/jwks.json", JsonWebKeys.Get);
+        app.MapGet("/.well-known/jwks.json", JsonWebKeys.Get).RequireCors("WellKnown");
+        app.MapGet("/.well-known/openid-configuration", OpenId.Get).RequireCors("WellKnown");
     }
 
     public class Auth
