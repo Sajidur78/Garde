@@ -1,4 +1,4 @@
-namespace Garde;
+namespace Garde.Authentication;
 
 public class MemoryAuthenticator : IAuthenticator
 {

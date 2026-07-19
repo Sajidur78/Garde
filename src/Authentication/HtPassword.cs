@@ -1,4 +1,4 @@
-namespace Garde;
+namespace Garde.Authentication;
 using BCrypt.Net;
 
 public class HtPassword : IAuthenticator

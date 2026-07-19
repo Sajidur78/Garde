@@ -1,6 +1,7 @@
 namespace Garde;
 using WellKnown;
 using System.Web;
+using Garde.Authentication;
 
 public static class Requests
 {

@@ -15,6 +15,7 @@ using ScottBrady.IdentityModel.Crypto;
 using Org.BouncyCastle.OpenSsl;
 using Org.BouncyCastle.Security;
 using System.Collections;
+using Garde.Authentication;
 
 var rules = new LocalFileRuleProvider("public_suffix_list.dat");
 await rules.BuildAsync();

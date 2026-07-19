@@ -1,4 +1,4 @@
-namespace Garde;
+namespace Garde.Authentication;
 
 using Microsoft.AspNetCore.Server.IIS;
 using System.Collections;
